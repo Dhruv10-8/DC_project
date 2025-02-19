@@ -1,154 +1,172 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Task Manager</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      max-width: 600px;
-      background-size: cover;
-      margin: 50px auto;
-      text-align: center;
-      background-image: url('https://img.freepik.com/free-photo/vivid-blurred-colorful-wallpaper-background_58702-3798.jpg');
-    }
-    h1{
-        color: rgb(0, 98, 255);
-    }
-    input {
-      margin: 10px;
-      padding: 10px;
-      font-size: 16px;
-      border: 6px;
-    }
-    button {
-      margin: 10px;
-      padding: 10px;
-      font-size: 16px;
-      border-radius: 6px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 20px;
-    }
-    th, td {
-      border: 1px solid #ddd;
-      padding: 10px;
-    }
-    tbody{
-        background-color: white;
-        border-radius: 12px;
-    }
-    th {
-      background-color: rgb(0, 81, 152);
-      color:#ffffff
-    }
-  </style>
-  <script>
-    const backendUrl = "http://192.168.1.6:5000/tasks"; // Replace with Laptop A IP address
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Manager</title>
+    <link rel="stylesheet" href="styles.css">
+    <script>
+        const backendUrl = "http://192.168.1.3:5000/tasks";
 
-    async function fetchTasks() {
-      try {
-        const response = await fetch(backendUrl);
-        if (!response.ok) throw new Error("Failed to fetch tasks");
+        async function fetchTasks() {
+            try {
+                const response = await fetch(backendUrl);
+                if (!response.ok) throw new Error("Failed to fetch tasks");
 
-        const tasks = await response.json();
-        const taskTable = document.getElementById('task-table-body');
-        taskTable.innerHTML = ''; // Clear previous data
-
-        tasks.forEach(task => {
-          const row = document.createElement('tr');
-          row.innerHTML = `
-            <td>${task.id}</td>
-            <td>${task.description}</td>
-            <td>${task.due_date}</td>
-            <td><button onclick="deleteTask(${task.id})">Delete</button></td>
-          `;
-          taskTable.appendChild(row);
-        });
-      } catch (error) {
-        alert("Error fetching tasks: " + error.message);
-
-
-      }
-    }
-
-    async function addTask() {
-      const description = document.getElementById('description').value;
-      const dueDate = document.getElementById('due_date').value;
-
-      if (!description || !dueDate) {
-        alert("Please fill in both fields.");
-        return;
-      }
-
-      const task = { description, due_date: dueDate };
-
-      try {
-        const response = await fetch(backendUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify(task)
-        });
-
-        if (response.ok) {
-          alert("Task added successfully!");
-          document.getElementById('description').value = '';
-          document.getElementById('due_date').value = '';
-          fetchTasks();
-        } else {
-          const error = await response.json();
-          alert("Error: " + error.error);
+                const tasks = await response.json();
+                populateTaskTable(tasks);
+                highlightCalendar(tasks);
+            } catch (error) {
+                alert("Error fetching tasks: " + error.message);
+            }
         }
-      } catch (error) {
-        alert("Error: " + error.message);
-      }
-    }
 
-    async function deleteTask(taskId) {
-      try {
-        const response = await fetch(`${backendUrl}/${taskId}`, {
-          method: "DELETE"
-        });
-
-        if (response.ok) {
-          alert(`Task with ID ${taskId} deleted successfully!`);
-          fetchTasks();
-        } else {
-          const error = await response.json();
-          alert("Error: " + error.error);
+        function populateTaskTable(tasks) {
+            const taskTable = document.getElementById('task-table-body');
+            taskTable.innerHTML = '';
+            tasks.forEach(task => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${task.id}</td>
+                    <td>${task.description}</td>
+                    <td>${task.due_date}</td>
+                    <td><button onclick="deleteTask(${task.id})">Delete</button></td>
+                `;
+                taskTable.appendChild(row);
+            });
         }
-      } catch (error) {
-        alert("Error: " + error.message);
-      }
-    }
 
-    window.onload = fetchTasks;
-  </script>
+        function highlightCalendar(tasks) {
+            const occupiedDates = tasks.map(task => task.due_date);
+            document.querySelectorAll('.day').forEach(day => {
+                if (occupiedDates.includes(day.dataset.date)) {
+                    day.classList.add('occupied');
+                    day.title = tasks.find(t => t.due_date === day.dataset.date).description; // Show task on hover
+                } else {
+                    day.classList.remove('occupied');
+                    day.removeAttribute('title');
+                }
+            });
+        }
+
+        async function addTask() {
+            const description = document.getElementById('description').value;
+            const dueDate = document.getElementById('due_date').value;
+            if (!description || !dueDate) {
+                alert("Please fill in both fields.");
+                return;
+            }
+
+            const task = { description, due_date: dueDate };
+            try {
+                const response = await fetch(backendUrl, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(task)
+                });
+
+                if (response.ok) {
+                    alert("Task added successfully!");
+                    document.getElementById('description').value = '';
+                    document.getElementById('due_date').value = '';
+                    fetchTasks();
+                } else {
+                    alert("Error adding task");
+                }
+            } catch (error) {
+                alert("Error: " + error.message);
+            }
+        }
+
+        async function deleteTask(taskId) {
+            try {
+                const response = await fetch(`${backendUrl}/${taskId}`, { method: "DELETE" });
+                if (response.ok) {
+                    alert(`Task ${taskId} deleted!`);
+                    fetchTasks();
+                } else {
+                    alert("Error deleting task");
+                }
+            } catch (error) {
+                alert("Error: " + error.message);
+            }
+        }
+
+        function generateCalendar(monthOffset = 0) {
+            const calendar = document.getElementById('calendar');
+            calendar.innerHTML = '';
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = today.getMonth() + monthOffset;
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            document.getElementById('month-title').innerText = new Date(year, month).toLocaleString('default', { month: 'long', year: 'numeric' });
+
+            for (let i = 0; i < firstDay; i++) {
+                const emptyDiv = document.createElement('div');
+                calendar.appendChild(emptyDiv);
+            }
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayDiv = document.createElement('div');
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                dayDiv.classList.add('day');
+                dayDiv.dataset.date = dateStr;
+                dayDiv.innerText = day;
+                calendar.appendChild(dayDiv);
+            }
+
+            fetchTasks(); // Refresh tasks with updated month
+        }
+
+        let currentMonthOffset = 0;
+
+        function prevMonth() {
+            currentMonthOffset--;
+            generateCalendar(currentMonthOffset);
+        }
+
+        function nextMonth() {
+            currentMonthOffset++;
+            generateCalendar(currentMonthOffset);
+        }
+
+        window.onload = () => {
+            generateCalendar();
+            fetchTasks();
+        };
+    </script>
 </head>
 <body>
-  <h1>Task Manager</h1>
+    <h1>Task Manager</h1>
+    <h2>Add a New Task</h2>
+    <form>
+        <label for="description">Task Description</label>
+        <input type="text" id="description" placeholder="Enter task description">
+        <label for="due_date">Due Date</label>
+        <input type="date" id="due_date">
+        <button type="button" onclick="addTask()">Add Task</button>
+    </form>
 
-  <h2>Add a New Task</h2>
-  <input type="text" id="description" placeholder="Task Description">
-  <input type="date" id="due_date">
-  <button onclick="addTask()">Add Task</button>
+    <h2>Task List</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Description</th>
+                <th>Due Date</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody id="task-table-body"></tbody>
+    </table>
 
-  <h2>Task List</h2>
-  <table>
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Description</th>
-        <th>Due Date</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody id="task-table-body"></tbody>
-  </table>
+    <h2>Calendar</h2>
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <button onclick="prevMonth()">← Previous</button>
+        <h3 id="month-title"></h3>
+        <button onclick="nextMonth()">Next →</button>
+    </div>
+    <div id="calendar"></div>
 </body>
 </html>
